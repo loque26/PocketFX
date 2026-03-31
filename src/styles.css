@@ -56,6 +56,27 @@ body{
   padding: 8px 0;
 }
 
+.tabs{
+  display:flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tabButton{
+  flex:1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.35);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.tabButtonActive{
+  background: linear-gradient(135deg, rgba(110,231,255,0.30), rgba(167,139,250,0.30));
+  color: var(--text);
+  border-color: rgba(255,255,255,0.20);
+}
+
 .card{
   background: linear-gradient(180deg, var(--card), rgba(255,255,255,0.04));
   border: 1px solid rgba(255,255,255,0.10);
@@ -82,6 +103,19 @@ body{
 .btn:disabled{ opacity: 0.55; cursor:not-allowed; }
 .btnGhost{
   background: rgba(255,255,255,0.06);
+}
+
+.linkButton{
+  background: none;
+  border: none;
+  color: #facc15;
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.linkButton:hover{
+  text-decoration: none;
 }
 
 .label{ display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
@@ -146,6 +180,76 @@ body{
 }
 .errorText{ color: #ff9aaa; font-size: 13px; margin-top: 8px; }
 .topActions{ display:flex; gap: 10px; }
+
+.recentList{
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+}
+.recentItem{
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+  color: var(--text);
+  display:flex;
+  align-items:center;
+  cursor: pointer;
+}
+.recentItem:hover{
+  filter: brightness(1.06);
+}
+.recentMain{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-size: 13px;
+}
+.recentAmount{
+  font-weight: 600;
+}
+.recentArrow{
+  opacity: 0.8;
+}
+.recentPair{
+  color: var(--muted);
+}
+
+.cardDividerSection{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+.suggestedList{
+  list-style:none;
+  padding:0;
+  margin:10px 0 0;
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+}
+.suggestedItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+.suggestedInfo{
+  display:flex;
+  flex-direction:column;
+  gap: 2px;
+}
+.suggestedPair{
+  font-weight: 650;
+}
+.suggestedMeta{
+  font-size: 12px;
+}
 
 @media (min-width: 720px){
   .topBar{ padding: 18px 22px; }

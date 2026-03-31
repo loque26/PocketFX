@@ -3,11 +3,12 @@ import { FavoritesSetup } from "./components/FavoritesSetup";
 import { Modal } from "./components/Modal";
 import { CURRENCIES, currencyLabel } from "./currencies";
 import { convertAmount, fetchRates, formatNumber, rateFor } from "./rates";
-import type { AppPrefs } from "./storage";
+import type { AppPrefs, RecentConversion } from "./storage";
 import { loadPrefs, normalizeFavorites, savePrefs } from "./storage";
 import { FavoriteTile } from "./components/FavoriteTile";
 import { currencyFlag } from "./flags";
 import { fetchHistory, type HistoryPoint } from "./history";
+import { Sparkline } from "./components/Sparkline";
 
 type RateMap = Record<
   string,
@@ -26,22 +27,32 @@ type Insight = {
   body: string;
 };
 
+type HistoryState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; points: HistoryPoint[] };
+
 export default function App(): JSX.Element {
   const [prefs, setPrefs] = useState<AppPrefs>(() => loadPrefs());
-  const [setupOpen, setSetupOpen] = useState<boolean>(() => prefs.favorites.length === 0);
+  const [setupOpen, setSetupOpen] = useState<boolean>(false);
 
   const favorites = useMemo(() => normalizeFavorites(prefs.favorites), [prefs.favorites]);
+  const recents = prefs.recents ?? [];
   const [ratesByBase, setRatesByBase] = useState<RateMap>({});
   const [insights, setInsights] = useState<Insight[]>([]);
 
   const [amount, setAmount] = useState<number>(prefs.landingAmount);
   const [from, setFrom] = useState<string>(favorites[0]?.base ?? "USD");
   const [to, setTo] = useState<string>(favorites[0]?.quote ?? "INR");
+  const [tab, setTab] = useState<"convert" | "favorites">("convert");
+  const [showConvertTrend, setShowConvertTrend] = useState<boolean>(false);
+  const [convertHistory, setConvertHistory] = useState<HistoryState>({ status: "idle" });
 
   useEffect(() => {
     savePrefs({ ...prefs, favorites });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.landingAmount, favorites]);
+  }, [prefs.landingAmount, favorites, prefs.recents]);
 
   useEffect(() => {
     const bases = Array.from(new Set([...favorites.map((f) => f.base), from]));
@@ -128,6 +139,52 @@ export default function App(): JSX.Element {
     };
   }, [amount, from, to, ratesByBase]);
 
+  const upsertRecent = (base: string, quote: string, value: number) => {
+    setPrefs((prev) => {
+      const current = prev.recents ?? [];
+      const key = `${base.toUpperCase()}->${quote.toUpperCase()}`;
+      const existing = current.filter((r) => `${r.base}->${r.quote}` !== key);
+      const next: RecentConversion[] = [
+        {
+          id: crypto.randomUUID(),
+          base: base.toUpperCase(),
+          quote: quote.toUpperCase(),
+          amount: safeAmount(value),
+          lastUsedAt: Date.now(),
+        },
+        ...existing,
+      ].slice(0, 10);
+      return { ...prev, recents: next };
+    });
+  };
+
+  useEffect(() => {
+    if (convertResult.status !== "ready") return;
+    upsertRecent(from, to, amount);
+    // we intentionally depend on convertResult/value so each successful change is recorded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convertResult.status, amount, from, to]);
+
+  useEffect(() => {
+    if (!showConvertTrend) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setConvertHistory((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    fetchHistory(from, to, 6, controller.signal)
+      .then((points) => {
+        if (cancelled) return;
+        setConvertHistory({ status: "ready", points });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setConvertHistory({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [showConvertTrend, from, to]);
+
   return (
     <div className="appShell">
       <header className="topBar">
@@ -141,7 +198,25 @@ export default function App(): JSX.Element {
       </header>
 
       <main className="content">
-        <section className="hero card">
+        <div className="tabs">
+          <button
+            className={tab === "convert" ? "tabButton tabButtonActive" : "tabButton"}
+            type="button"
+            onClick={() => setTab("convert")}
+          >
+            Convert
+          </button>
+          <button
+            className={tab === "favorites" ? "tabButton tabButtonActive" : "tabButton"}
+            type="button"
+            onClick={() => setTab("favorites")}
+          >
+            Favorites
+          </button>
+        </div>
+
+        {tab === "favorites" && (
+          <section className="hero card">
           <div className="rowBetween">
             <div>
               <div className="cardTitle">Your favorites</div>
@@ -150,14 +225,63 @@ export default function App(): JSX.Element {
               </div>
             </div>
             <button className="btn" onClick={() => setSetupOpen(true)}>
-              {favorites.length === 0 ? "Add favorites" : "Edit favorites"}
+              {favorites.length === 0 ? "Add favorites" : "Organize favorites"}
             </button>
           </div>
 
           {favorites.length === 0 ? (
-            <div className="emptyState" style={{ marginTop: 12 }}>
-              No favorites yet. Click <b>Add favorites</b> to pick up to 10 conversions.
-            </div>
+            <>
+              <div className="emptyState" style={{ marginTop: 12 }}>
+                You haven&apos;t saved any conversions yet. Tap <b>Add favorites</b> to choose your top pairs.
+              </div>
+              <div className="cardDividerSection">
+                <div className="cardTitle" style={{ fontSize: 14, marginTop: 12 }}>Suggested favorites (from recent conversions)</div>
+                {recents.length === 0 ? (
+                  <div className="muted" style={{ marginTop: 8 }}>Use the Convert tab first and we&apos;ll suggest favorites based on your recent pairs.</div>
+                ) : (
+                  <ul className="suggestedList">
+                    {recents
+                      .filter((r, index, arr) => {
+                        const key = `${r.base}->${r.quote}`;
+                        return (
+                          arr.findIndex((x) => `${x.base}->${x.quote}` === key) === index &&
+                          !favorites.some((f) => f.base === r.base && f.quote === r.quote)
+                        );
+                      })
+                      .slice(0, 5)
+                      .map((r) => (
+                        <li key={r.id} className="suggestedItem">
+                          <div className="suggestedInfo">
+                            <span className="suggestedPair">
+                              {r.base} → {r.quote}
+                            </span>
+                            <span className="muted suggestedMeta">
+                              Last used with {formatNumber(safeAmount(r.amount), 2)} {r.base}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => {
+                              const next = {
+                                ...prefs,
+                                favorites: [...prefs.favorites, { id: crypto.randomUUID(), base: r.base, quote: r.quote }],
+                              };
+                              const cleaned = {
+                                ...next,
+                                favorites: normalizeFavorites(next.favorites).slice(0, 10),
+                              };
+                              setPrefs(cleaned);
+                            }}
+                          >
+                            Add
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <div className="tiles" style={{ marginTop: 12 }}>
@@ -192,12 +316,69 @@ export default function App(): JSX.Element {
             </>
           )}
         </section>
+        )}
 
+        {tab === "convert" && (
+        <>
         <section className="card" style={{ marginTop: 16 }}>
           <div className="rowBetween">
             <div>
-              <div className="cardTitle">Quick convert</div>
-              <div className="muted">For one-off conversions beyond your favorites.</div>
+              <div className="cardTitle">Convert now</div>
+              <div className="muted">For one-off conversions. We’ll remember your recent pairs.</div>
+            </div>
+            <div>
+              {convertResult.status === "ready" && (
+                (() => {
+                  const isInFavorites = favorites.some(
+                    (f) => f.base === from.toUpperCase() && f.quote === to.toUpperCase()
+                  );
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btnGhost"
+                        disabled={isInFavorites}
+                        aria-label={
+                          isInFavorites ? "Already in favorites" : "Add this pair to favorites"
+                        }
+                        onClick={() => {
+                          if (isInFavorites) return;
+                          const next = {
+                            ...prefs,
+                            landingAmount: safeAmount(amount),
+                            favorites: [
+                              ...prefs.favorites,
+                              {
+                                id: crypto.randomUUID(),
+                                base: from.toUpperCase(),
+                                quote: to.toUpperCase(),
+                              },
+                            ],
+                          };
+                          const cleaned = {
+                            ...next,
+                            favorites: normalizeFavorites(next.favorites).slice(0, 10),
+                          };
+                          setPrefs(cleaned);
+                        }}
+                      >
+                        <span style={{ color: "#facc15", fontSize: 18 }}>
+                          {isInFavorites ? "★" : "☆"}
+                        </span>
+                      </button>
+                      {isInFavorites && (
+                        <button
+                          type="button"
+                          className="linkButton"
+                          onClick={() => setTab("favorites")}
+                        >
+                          Go to favorites
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
             </div>
           </div>
 
@@ -257,11 +438,74 @@ export default function App(): JSX.Element {
                     <span className="flag">{currencyFlag(to)}</span>
                     {to}
                   </div>
+                  <button
+                    type="button"
+                    className="btn btnGhost"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setShowConvertTrend((v) => !v)}
+                  >
+                    {showConvertTrend ? "Hide trend" : "Show 6m trend"}
+                  </button>
+                  {showConvertTrend && (
+                    <div style={{ marginTop: 10 }}>
+                      {convertHistory.status === "loading" && (
+                        <div className="muted">Loading 6m trend…</div>
+                      )}
+                      {convertHistory.status === "error" && (
+                        <div className="muted">6m trend unavailable</div>
+                      )}
+                      {convertHistory.status === "ready" && (
+                        <Sparkline points={convertHistory.points} ranges={["1M", "3M", "6M"]} />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </section>
+
+        <section className="card" style={{ marginTop: 16 }}>
+          <div className="rowBetween">
+            <div>
+              <div className="cardTitle">Recent conversions</div>
+              <div className="muted">Tap a recent pair to reuse it.</div>
+            </div>
+          </div>
+          {recents.length === 0 ? (
+            <div className="emptyState" style={{ marginTop: 12 }}>
+              No recent conversions yet. Use <b>Convert now</b> to get started.
+            </div>
+          ) : (
+            <ul className="recentList">
+              {recents.slice(0, 5).map((r) => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    className="recentItem"
+                    onClick={() => {
+                      setAmount(r.amount);
+                      setFrom(r.base);
+                      setTo(r.quote);
+                    }}
+                  >
+                    <div className="recentMain">
+                      <span className="recentAmount">
+                        {formatNumber(safeAmount(r.amount), 2)} {r.base}
+                      </span>
+                      <span className="recentArrow">→</span>
+                      <span className="recentPair">
+                        {r.base} / {r.quote}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        </>
+        )}
       </main>
 
       <footer className="footer">
