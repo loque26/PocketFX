@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/currencies.ts","./src/flags.ts","./src/history.ts","./src/main.tsx","./src/rates.ts","./src/storage.ts","./src/components/favoritetile.tsx","./src/components/favoritessetup.tsx","./src/components/modal.tsx","./src/components/sparkline.tsx"],"version":"5.9.3"}
