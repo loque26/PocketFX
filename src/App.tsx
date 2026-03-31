@@ -33,6 +33,12 @@ type HistoryState =
   | { status: "error" }
   | { status: "ready"; points: HistoryPoint[] };
 
+function initialTabFromHash(): "convert" | "favorites" {
+  if (typeof window === "undefined") return "convert";
+  const hash = window.location.hash.toLowerCase();
+  return hash === "#favorites" ? "favorites" : "convert";
+}
+
 export default function App(): JSX.Element {
   const [prefs, setPrefs] = useState<AppPrefs>(() => loadPrefs());
   const [setupOpen, setSetupOpen] = useState<boolean>(false);
@@ -45,7 +51,9 @@ export default function App(): JSX.Element {
   const [amount, setAmount] = useState<number>(prefs.landingAmount);
   const [from, setFrom] = useState<string>(favorites[0]?.base ?? "USD");
   const [to, setTo] = useState<string>(favorites[0]?.quote ?? "INR");
-  const [tab, setTab] = useState<"convert" | "favorites">("convert");
+  const [tab, setTab] = useState<"convert" | "favorites">(
+    initialTabFromHash()
+  );
   const [showConvertTrend, setShowConvertTrend] = useState<boolean>(false);
   const [convertHistory, setConvertHistory] = useState<HistoryState>({ status: "idle" });
 
@@ -53,6 +61,26 @@ export default function App(): JSX.Element {
     savePrefs({ ...prefs, favorites });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs.landingAmount, favorites, prefs.recents]);
+
+  // Keep URL hash in sync with current tab for deep-linking/bookmarks.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const desired = tab === "favorites" ? "#favorites" : "#convert";
+    if (window.location.hash.toLowerCase() !== desired) {
+      window.location.hash = desired;
+    }
+  }, [tab]);
+
+  // Optionally respond to manual hash changes / back-forward navigation.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      const hash = window.location.hash.toLowerCase();
+      setTab(hash === "#favorites" ? "favorites" : "convert");
+    };
+    window.addEventListener("hashchange", handler);
+    return () => window.removeEventListener("hashchange", handler);
+  }, []);
 
   useEffect(() => {
     const bases = Array.from(new Set([...favorites.map((f) => f.base), from]));
