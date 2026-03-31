@@ -204,14 +204,20 @@ export default function App(): JSX.Element {
             type="button"
             onClick={() => setTab("convert")}
           >
-            Convert
+            <span className="tabInner">
+              <span className="tabIcon">💱</span>
+              <span className="tabLabel">Convert</span>
+            </span>
           </button>
           <button
             className={tab === "favorites" ? "tabButton tabButtonActive" : "tabButton"}
             type="button"
             onClick={() => setTab("favorites")}
           >
-            Favorites
+            <span className="tabInner">
+              <span className="tabIcon">★</span>
+              <span className="tabLabel">Favorites</span>
+            </span>
           </button>
         </div>
 
@@ -326,60 +332,6 @@ export default function App(): JSX.Element {
               <div className="cardTitle">Convert now</div>
               <div className="muted">For one-off conversions. We’ll remember your recent pairs.</div>
             </div>
-            <div>
-              {convertResult.status === "ready" && (
-                (() => {
-                  const isInFavorites = favorites.some(
-                    (f) => f.base === from.toUpperCase() && f.quote === to.toUpperCase()
-                  );
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button
-                        type="button"
-                        className="btn btnGhost"
-                        disabled={isInFavorites}
-                        aria-label={
-                          isInFavorites ? "Already in favorites" : "Add this pair to favorites"
-                        }
-                        onClick={() => {
-                          if (isInFavorites) return;
-                          const next = {
-                            ...prefs,
-                            landingAmount: safeAmount(amount),
-                            favorites: [
-                              ...prefs.favorites,
-                              {
-                                id: crypto.randomUUID(),
-                                base: from.toUpperCase(),
-                                quote: to.toUpperCase(),
-                              },
-                            ],
-                          };
-                          const cleaned = {
-                            ...next,
-                            favorites: normalizeFavorites(next.favorites).slice(0, 10),
-                          };
-                          setPrefs(cleaned);
-                        }}
-                      >
-                        <span style={{ color: "#facc15", fontSize: 18 }}>
-                          {isInFavorites ? "★" : "☆"}
-                        </span>
-                      </button>
-                      {isInFavorites && (
-                        <button
-                          type="button"
-                          className="linkButton"
-                          onClick={() => setTab("favorites")}
-                        >
-                          Go to favorites
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
           </div>
 
           <div className="quickGrid">
@@ -438,14 +390,56 @@ export default function App(): JSX.Element {
                     <span className="flag">{currencyFlag(to)}</span>
                     {to}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btnGhost"
-                    style={{ marginTop: 8 }}
-                    onClick={() => setShowConvertTrend((v) => !v)}
-                  >
-                    {showConvertTrend ? "Hide trend" : "Show 6m trend"}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btnGhost"
+                      onClick={() => setShowConvertTrend((v) => !v)}
+                    >
+                      {showConvertTrend ? "Hide 6m trend" : "Show 6m trend"}
+                    </button>
+                    {(() => {
+                      const isInFavorites = favorites.some(
+                        (f) => f.base === from.toUpperCase() && f.quote === to.toUpperCase()
+                      );
+                      const label = isInFavorites ? "Marked as favorite" : "Add as favorite";
+                      const icon = isInFavorites ? "★" : "☆";
+                      return (
+                        <button
+                          type="button"
+                          className="btn btnGhost"
+                          style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}
+                          disabled={false}
+                          onClick={() => {
+                            if (isInFavorites) {
+                              setTab("favorites");
+                              return;
+                            }
+                            const next = {
+                              ...prefs,
+                              landingAmount: safeAmount(amount),
+                              favorites: [
+                                ...prefs.favorites,
+                                {
+                                  id: crypto.randomUUID(),
+                                  base: from.toUpperCase(),
+                                  quote: to.toUpperCase(),
+                                },
+                              ],
+                            };
+                            const cleaned = {
+                              ...next,
+                              favorites: normalizeFavorites(next.favorites).slice(0, 10),
+                            };
+                            setPrefs(cleaned);
+                          }}
+                        >
+                          <span>{label}</span>
+                          <span style={{ color: "#ffe956", fontSize: 16, lineHeight: 1 }}>{icon}</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
                   {showConvertTrend && (
                     <div style={{ marginTop: 10 }}>
                       {convertHistory.status === "loading" && (

@@ -58,23 +58,46 @@ body{
 
 .tabs{
   display:flex;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 4px;
+  margin-bottom: 0;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 8px 12px 10px;
+  background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(3,7,18,0.98));
+  box-shadow: 0 -6px 30px rgba(0,0,0,0.75);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(148,163,184,0.45);
 }
 .tabButton{
   flex:1;
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.35);
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 .tabButtonActive{
-  background: linear-gradient(135deg, rgba(110,231,255,0.30), rgba(167,139,250,0.30));
+  background: rgba(15,118,255,0.18);
   color: var(--text);
-  border-color: rgba(255,255,255,0.20);
+}
+
+.tabInner{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: 2px;
+  font-weight: 650;
+}
+.tabIcon{
+  font-size: 18px;
+}
+.tabLabel{
+  font-size: 11px;
 }
 
 .card{
@@ -105,10 +128,24 @@ body{
   background: rgba(255,255,255,0.06);
 }
 
+.iconButton{
+  background: none;
+  border: none;
+  padding: 4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor: pointer;
+}
+.iconButton:disabled{
+  cursor: default;
+  opacity: 0.85;
+}
+
 .linkButton{
   background: none;
   border: none;
-  color: #facc15;
+  color: #ffe956;
   font-size: 13px;
   padding: 0;
   cursor: pointer;
